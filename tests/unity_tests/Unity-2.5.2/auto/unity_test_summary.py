@@ -18,19 +18,15 @@ class UnityTestSummary:
         self.ignored = 0
 
     def run(self):
-        # Clean up result file names
-        results = []
-        for target in self.targets:
-            results.append(target.replace('\\', '/'))
-
+        results = [target.replace('\\', '/') for target in self.targets]
         # Dig through each result file, looking for details on pass/fail:
         failure_output = []
         ignore_output = []
 
         for result_file in results:
             lines = list(map(lambda line: line.rstrip(), open(result_file, "r").read().split('\n')))
-            if len(lines) == 0:
-                raise Exception("Empty test result file: %s" % result_file)
+            if not lines:
+                raise Exception(f"Empty test result file: {result_file}")
 
             details = self.get_details(result_file, lines)
             failures = details['failures']
@@ -93,10 +89,7 @@ class UnityTestSummary:
                 msg = ''
             else:
                 continue
-            if len(self.root) > 0:
-                line_out = "%s%s" % (self.root, line)
-            else:
-                line_out = line
+            line_out = f"{self.root}{line}" if len(self.root) > 0 else line
             if status == 'IGNORE':
                 results['ignores'].append(line_out)
             elif status == 'FAIL':
@@ -106,34 +99,34 @@ class UnityTestSummary:
         return results
 
     def parse_test_summary(self, summary):
-        m = re.search(r"([0-9]+) Tests ([0-9]+) Failures ([0-9]+) Ignored", summary)
-        if not m:
-            raise Exception("Couldn't parse test results: %s" % summary)
-
-        return int(m.group(1)), int(m.group(2)), int(m.group(3))
+        if m := re.search(
+            r"([0-9]+) Tests ([0-9]+) Failures ([0-9]+) Ignored", summary
+        ):
+            return int(m[1]), int(m[2]), int(m[3])
+        else:
+            raise Exception(f"Couldn't parse test results: {summary}")
 
 
 if __name__ == '__main__':
-  uts = UnityTestSummary()
-  try:
-    #look in the specified or current directory for result files
-    if len(sys.argv) > 1:
-        targets_dir = sys.argv[1]
-    else:
-        targets_dir = './'
-    targets = list(map(lambda x: x.replace('\\', '/'), glob(targets_dir + '**/*.test*', recursive=True)))
-    if len(targets) == 0:
-        raise Exception("No *.testpass or *.testfail files found in '%s'" % targets_dir)
-    uts.set_targets(targets)
+    uts = UnityTestSummary()
+    try:
+            #look in the specified or current directory for result files
+        targets_dir = sys.argv[1] if len(sys.argv) > 1 else './'
+        targets = list(
+            map(
+                lambda x: x.replace('\\', '/'),
+                glob(f'{targets_dir}**/*.test*', recursive=True),
+            )
+        )
+        if not targets:
+            raise Exception(f"No *.testpass or *.testfail files found in '{targets_dir}'")
+        uts.set_targets(targets)
 
-    #set the root path
-    if len(sys.argv) > 2:
-        root_path = sys.argv[2]
-    else:
-        root_path = os.path.split(__file__)[0]
-    uts.set_root_path(root_path)
+            #set the root path
+        root_path = sys.argv[2] if len(sys.argv) > 2 else os.path.split(__file__)[0]
+        uts.set_root_path(root_path)
 
-    #run the summarizer
-    print(uts.run())
-  except Exception as e:
-    uts.usage(e)
+        #run the summarizer
+        print(uts.run())
+    except Exception as e:
+      uts.usage(e)

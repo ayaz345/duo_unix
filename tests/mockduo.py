@@ -59,13 +59,12 @@ class MockDuoHandler(BaseHTTPRequestHandler):
             return False
 
         canon = [self.method, self.headers["Host"].split(":")[0].lower(), self.path]
-        l = []
-        for k in sorted(self.args.keys()):
-            l.append(
-                "{0}={1}".format(
-                    urllib.parse.quote(k, "~"), urllib.parse.quote(self.args[k], "~")
-                )
+        l = [
+            "{0}={1}".format(
+                urllib.parse.quote(k, "~"), urllib.parse.quote(self.args[k], "~")
             )
+            for k in sorted(self.args.keys())
+        ]
         canon.append("&".join(l))
         h = hmac.new(SKEY, ("\n".join(canon)).encode("utf8"), digestmod="sha512")
 
@@ -78,9 +77,7 @@ class MockDuoHandler(BaseHTTPRequestHandler):
                 "CONTENT_TYPE": self.headers["Content-Type"],
             }
             fs = cgi.FieldStorage(fp=self.rfile, headers=self.headers, environ=env)
-            args = {}
-            for k in fs.keys():
-                args[k] = fs[k].value
+            args = {k: fs[k].value for k in fs.keys()}
         else:
             args = dict(urllib.parse.parse_qsl(self.qs))
         print("got {0} {1} args: {2}".format(self.method, self.path, args))
@@ -134,10 +131,10 @@ class MockDuoHandler(BaseHTTPRequestHandler):
 
     def hostname_check(self, hostname):
         domain_fqdn = socket.getfqdn().lower()
-        if hostname == domain_fqdn.lower() or hostname == socket.gethostname().lower():
+        if hostname in [domain_fqdn.lower(), socket.gethostname().lower()]:
             return True
         # Check if socket.getfqdn() is the loopback address for ipv4 or ipv6 then check the hostname of the machine
-        if domain_fqdn == IPV6_LOOPBACK_ADDR or domain_fqdn == IPV4_LOOPBACK_ADDR:
+        if domain_fqdn in [IPV6_LOOPBACK_ADDR, IPV4_LOOPBACK_ADDR]:
             if hostname == socket.gethostbyaddr(socket.gethostname())[0].lower():
                 return True
         return False

@@ -68,7 +68,7 @@ def login_duo_interactive(args, env=None, preload_script=""):
     env_passthrough = {
         key: os.environ[key] for key in os.environ if key not in excluded_keys
     }
-    env_passthrough.update(env)
+    env_passthrough |= env
 
     if preload_script != "":
         login_duo_path = "python3"
@@ -76,8 +76,7 @@ def login_duo_interactive(args, env=None, preload_script=""):
     else:
         login_duo_path = os.path.join(BUILDDIR, "login_duo", "login_duo")
 
-    process = pexpect.spawn(login_duo_path, args, cwd=TESTDIR, env=env_passthrough)
-    return process
+    return pexpect.spawn(login_duo_path, args, cwd=TESTDIR, env=env_passthrough)
 
 
 def login_duo(args, env=None, timeout=10, preload_script=""):
@@ -103,7 +102,7 @@ def login_duo(args, env=None, timeout=10, preload_script=""):
     env_passthrough = {
         key: os.environ[key] for key in os.environ if key not in excluded_keys
     }
-    env_passthrough.update(env)
+    env_passthrough |= env
 
     process = subprocess.Popen(
         login_duo_path + args,

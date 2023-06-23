@@ -14,26 +14,20 @@ class UnityTestSummary:
         self.ignored = 0
         self.targets = 0
         self.root = None
-        self.test_suites = dict()
+        self.test_suites = {}
 
     def run(self):
-        # Clean up result file names
-        results = []
-        for target in self.targets:
-            results.append(target.replace('\\', '/'))
-
+        results = [target.replace('\\', '/') for target in self.targets]
         # Dig through each result file, looking for details on pass/fail:
         for result_file in results:
             lines = list(map(lambda line: line.rstrip(), open(result_file, "r").read().split('\n')))
-            if len(lines) == 0:
-                raise Exception("Empty test result file: %s" % result_file)
+            if not lines:
+                raise Exception(f"Empty test result file: {result_file}")
 
             # define an expression for your file reference
-            entry_one = Combine(
-                oneOf(list(alphas)) + ':/' +
-                Word(alphanums + '_-./'))
+            entry_one = Combine(f"{oneOf(list(alphas))}:/{Word(f'{alphanums}_-./')}")
 
-            entry_two = Word(printables + ' ', excludeChars=':')
+            entry_two = Word(f'{printables} ', excludeChars=':')
             entry = entry_one | entry_two
 
             delimiter = Literal(':').suppress()
@@ -55,13 +49,11 @@ class UnityTestSummary:
             pp1 = tc_result_line | Optional(tc_summary_line | tc_end_line)
             pp1.ignore(blank_line | OneOrMore("-"))
 
-            result = list()
-            for l in lines:
-                result.append((pp1.parseString(l)).asDict())
+            result = [(pp1.parseString(l)).asDict() for l in lines]
             # delete empty results
             result = filter(None, result)
 
-            tc_list = list()
+            tc_list = []
             for r in result:
                 if 'tc_line' in r:
                     tmp_tc_line = r['tc_line']
@@ -92,10 +84,10 @@ class UnityTestSummary:
                     self.test_suites[k].append(v)
                 except KeyError:
                     self.test_suites[k] = [v]
-        ts = []
-        for suite_name in self.test_suites:
-            ts.append(TestSuite(suite_name, self.test_suites[suite_name]))
-
+        ts = [
+            TestSuite(suite_name, self.test_suites[suite_name])
+            for suite_name in self.test_suites
+        ]
         with open('result.xml', 'w') as f:
             TestSuite.to_file(f, ts, prettyprint='True', encoding='utf-8')
 
@@ -124,20 +116,16 @@ if __name__ == '__main__':
     uts = UnityTestSummary()
     try:
         # look in the specified or current directory for result files
-        if len(sys.argv) > 1:
-            targets_dir = sys.argv[1]
-        else:
-            targets_dir = './'
-        targets = list(map(lambda x: x.replace('\\', '/'), glob(targets_dir + '*.test*')))
-        if len(targets) == 0:
-            raise Exception("No *.testpass or *.testfail files found in '%s'" % targets_dir)
+        targets_dir = sys.argv[1] if len(sys.argv) > 1 else './'
+        targets = list(
+            map(lambda x: x.replace('\\', '/'), glob(f'{targets_dir}*.test*'))
+        )
+        if not targets:
+            raise Exception(f"No *.testpass or *.testfail files found in '{targets_dir}'")
         uts.set_targets(targets)
 
         # set the root path
-        if len(sys.argv) > 2:
-            root_path = sys.argv[2]
-        else:
-            root_path = os.path.split(__file__)[0]
+        root_path = sys.argv[2] if len(sys.argv) > 2 else os.path.split(__file__)[0]
         uts.set_root_path(root_path)
 
         # run the summarizer

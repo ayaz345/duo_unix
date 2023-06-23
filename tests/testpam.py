@@ -53,17 +53,19 @@ def testpam(args, config_file_name, env_overrides=None):
     env["PAM_SERVICE"] = PAM_SERVICE
 
     if env_overrides:
-        env.update(env_overrides)
+        env |= env_overrides
 
     if sys.platform == "darwin":
-        env["DYLD_LIBRARY_PATH"] = paths.topbuilddir + "/lib/.libs"
-        env["DYLD_INSERT_LIBRARIES"] = paths.build + "/.libs/libtestpam_preload.dylib"
+        env["DYLD_LIBRARY_PATH"] = f"{paths.topbuilddir}/lib/.libs"
+        env["DYLD_INSERT_LIBRARIES"] = f"{paths.build}/.libs/libtestpam_preload.dylib"
         env["DYLD_FORCE_FLAT_NAMESPACE"] = "1"
     elif sys.platform == "sunos5":
         architecture = {"32bit": "32", "64bit": "64"}[platform.architecture()[0]]
-        env["LD_PRELOAD_" + architecture] = paths.build + "/.libs/libtestpam_preload.so"
+        env[
+            f"LD_PRELOAD_{architecture}"
+        ] = f"{paths.build}/.libs/libtestpam_preload.so"
     else:
-        env["LD_PRELOAD"] = paths.build + "/.libs/libtestpam_preload.so"
+        env["LD_PRELOAD"] = f"{paths.build}/.libs/libtestpam_preload.so"
 
     testpam_path = [os.path.join(paths.build, "testpam")]
     p = subprocess.Popen(testpam_path + args, env=env)
@@ -94,7 +96,7 @@ def main():
         args.append(opt_host)
 
     config = "auth  required  {libpath}/pam_duo.so conf={duo_config_path} debug".format(
-        libpath=paths.topbuilddir + "/pam_duo/.libs", duo_config_path=opt_conf
+        libpath=f"{paths.topbuilddir}/pam_duo/.libs", duo_config_path=opt_conf
     )
     with TempPamConfig(config) as config_file:
         process = testpam(args, config_file.name)

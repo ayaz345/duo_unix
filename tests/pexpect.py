@@ -132,10 +132,7 @@ class ExceptionPexpect(Exception):
 
         """This returns True if list item 0 the string 'pexpect.py' in it."""
 
-        if trace_list_item[0].find("pexpect.py") == -1:
-            return True
-        else:
-            return False
+        return trace_list_item[0].find("pexpect.py") == -1
 
 
 class EOF(ExceptionPexpect):
@@ -281,11 +278,10 @@ def run(
             child_result_list.append(child.before)
             break
     child_result = "".join(child_result_list)
-    if withexitstatus:
-        child.close()
-        return (child_result, child.exitstatus)
-    else:
+    if not withexitstatus:
         return child_result
+    child.close()
+    return (child_result, child.exitstatus)
 
 
 class spawn(object):
@@ -446,7 +442,7 @@ class spawn(object):
         self.delayafterclose = 0.1  # Sets delay in close() method to allow kernel time to update process status. Time in seconds.
         self.delayafterterminate = 0.1  # Sets delay in terminate() method to allow kernel time to update process status. Time in seconds.
         self.softspace = False  # File-like object.
-        self.name = "<" + repr(self) + ">"  # File-like object.
+        self.name = f"<{repr(self)}>"
         self.encoding = None  # File-like object.
         self.closed = True  # File-like object.
         self.cwd = cwd
@@ -455,13 +451,10 @@ class spawn(object):
             sys.platform.lower().find("irix") >= 0
         )  # This flags if we are running on irix
         # Solaris uses internal __fork_pty(). All others use pty.fork().
-        if (sys.platform.lower().find("solaris") >= 0) or (
-            sys.platform.lower().find("sunos5") >= 0
-        ):
-            self.use_native_pty_fork = False
-        else:
-            self.use_native_pty_fork = True
-
+        self.use_native_pty_fork = (
+            sys.platform.lower().find("solaris") < 0
+            and sys.platform.lower().find("sunos5") < 0
+        )
         # allow dummy instances for subclasses that may not use command or args.
         if command is None:
             self.command = None
@@ -493,33 +486,34 @@ class spawn(object):
         """This returns a human-readable string that represents the state of
         the object."""
 
-        s = []
-        s.append(repr(self))
-        s.append("version: " + __version__ + " (" + __revision__ + ")")
-        s.append("command: " + str(self.command))
-        s.append("args: " + str(self.args))
-        s.append("searcher: " + str(self.searcher))
-        s.append("buffer (last 100 chars): " + str(self.buffer)[-100:])
-        s.append("before (last 100 chars): " + str(self.before)[-100:])
-        s.append("after: " + str(self.after))
-        s.append("match: " + str(self.match))
-        s.append("match_index: " + str(self.match_index))
-        s.append("exitstatus: " + str(self.exitstatus))
-        s.append("flag_eof: " + str(self.flag_eof))
-        s.append("pid: " + str(self.pid))
-        s.append("child_fd: " + str(self.child_fd))
-        s.append("closed: " + str(self.closed))
-        s.append("timeout: " + str(self.timeout))
-        s.append("delimiter: " + str(self.delimiter))
-        s.append("logfile: " + str(self.logfile))
-        s.append("logfile_read: " + str(self.logfile_read))
-        s.append("logfile_send: " + str(self.logfile_send))
-        s.append("maxread: " + str(self.maxread))
-        s.append("ignorecase: " + str(self.ignorecase))
-        s.append("searchwindowsize: " + str(self.searchwindowsize))
-        s.append("delaybeforesend: " + str(self.delaybeforesend))
-        s.append("delayafterclose: " + str(self.delayafterclose))
-        s.append("delayafterterminate: " + str(self.delayafterterminate))
+        s = [
+            repr(self),
+            f"version: {__version__} ({__revision__})",
+            f"command: {str(self.command)}",
+            f"args: {str(self.args)}",
+            f"searcher: {str(self.searcher)}",
+            f"buffer (last 100 chars): {str(self.buffer)[-100:]}",
+            f"before (last 100 chars): {str(self.before)[-100:]}",
+            f"after: {str(self.after)}",
+            f"match: {str(self.match)}",
+            f"match_index: {str(self.match_index)}",
+            f"exitstatus: {str(self.exitstatus)}",
+            f"flag_eof: {str(self.flag_eof)}",
+            f"pid: {str(self.pid)}",
+            f"child_fd: {str(self.child_fd)}",
+            f"closed: {str(self.closed)}",
+            f"timeout: {str(self.timeout)}",
+            f"delimiter: {str(self.delimiter)}",
+            f"logfile: {str(self.logfile)}",
+            f"logfile_read: {str(self.logfile_read)}",
+            f"logfile_send: {str(self.logfile_send)}",
+            f"maxread: {str(self.maxread)}",
+            f"ignorecase: {str(self.ignorecase)}",
+            f"searchwindowsize: {str(self.searchwindowsize)}",
+            f"delaybeforesend: {str(self.delaybeforesend)}",
+            f"delayafterclose: {str(self.delayafterclose)}",
+            f"delayafterterminate: {str(self.delayafterterminate)}",
+        ]
         return "\n".join(s)
 
     def _spawn(self, command, args=[]):
@@ -558,7 +552,7 @@ class spawn(object):
         command_with_path = which(self.command)
         if command_with_path is None:
             raise ExceptionPexpect(
-                "The command was not found or was not executable: %s." % self.command
+                f"The command was not found or was not executable: {self.command}."
             )
         self.command = command_with_path
         self.args[0] = self.command
@@ -572,7 +566,7 @@ class spawn(object):
             try:
                 self.pid, self.child_fd = pty.fork()
             except OSError as e:
-                raise ExceptionPexpect("Error! pty.fork() failed: " + str(e))
+                raise ExceptionPexpect(f"Error! pty.fork() failed: {str(e)}")
         else:  # Use internal __fork_pty
             self.pid, self.child_fd = self.__fork_pty()
 
@@ -679,7 +673,7 @@ class spawn(object):
         # Verify we can open child pty.
         fd = os.open(child_name, os.O_RDWR)
         if fd < 0:
-            raise ExceptionPexpect("Error! Could not open child pty, " + child_name)
+            raise ExceptionPexpect(f"Error! Could not open child pty, {child_name}")
         else:
             os.close(fd)
 
@@ -772,9 +766,7 @@ class spawn(object):
         to enter a password often set ECHO False. See waitnoecho()."""
 
         attr = termios.tcgetattr(self.child_fd)
-        if attr[3] & termios.ECHO:
-            return True
-        return False
+        return bool(attr[3] & termios.ECHO)
 
     def setecho(self, state):
 
@@ -809,10 +801,7 @@ class spawn(object):
 
         self.child_fd
         attr = termios.tcgetattr(self.child_fd)
-        if state:
-            attr[3] = attr[3] | termios.ECHO
-        else:
-            attr[3] = attr[3] & ~termios.ECHO
+        attr[3] = attr[3] | termios.ECHO if state else attr[3] & ~termios.ECHO
         # I tried TCSADRAIN and TCSAFLUSH, but these were inconsistent
         # and blocked on some platforms. TCSADRAIN is probably ideal if it worked.
         termios.tcsetattr(self.child_fd, termios.TCSANOW, attr)
@@ -870,16 +859,15 @@ class spawn(object):
         r, w, e = self.__select([self.child_fd], [], [], timeout)
 
         if not r:
-            if not self.isalive():
-                # Some platforms, such as Irix, will claim that their processes are alive;
-                # then timeout on the select; and then finally admit that they are not alive.
-                self.flag_eof = True
-                raise EOF(
-                    "End of File (EOF) in read_nonblocking(). Very pokey platform."
-                )
-            else:
+            if self.isalive():
                 raise TIMEOUT("Timeout exceeded in read_nonblocking().")
 
+            # Some platforms, such as Irix, will claim that their processes are alive;
+            # then timeout on the select; and then finally admit that they are not alive.
+            self.flag_eof = True
+            raise EOF(
+                "End of File (EOF) in read_nonblocking(). Very pokey platform."
+            )
         if self.child_fd in r:
             try:
                 s = os.read(self.child_fd, size)
@@ -905,7 +893,7 @@ class spawn(object):
 
         raise ExceptionPexpect("Reached an unexpected state in read_nonblocking().")
 
-    def read(self, size=-1):  # File-like object.
+    def read(self, size=-1):    # File-like object.
 
         """This reads at most "size" bytes from the file (less if the read hits
         EOF before obtaining size bytes). If the size argument is negative or
@@ -928,11 +916,9 @@ class spawn(object):
         # will never match anything in which case we stop only on EOF.
         cre = re.compile(".{%d}" % size, re.DOTALL)
         index = self.expect([cre, self.delimiter])  # delimiter default is EOF
-        if index == 0:
-            return self.after  ### self.before should be ''. Should I assert this?
-        return self.before
+        return self.after if index == 0 else self.before
 
-    def readline(self, size=-1):  # File-like object.
+    def readline(self, size=-1):    # File-like object.
 
         """This reads and returns one entire line. A trailing newline is kept
         in the string, but may be absent when a file ends with an incomplete
@@ -946,10 +932,7 @@ class spawn(object):
         if size == 0:
             return ""
         index = self.expect(["\r\n", self.delimiter])  # delimiter default is EOF
-        if index == 0:
-            return self.before + "\r\n"
-        else:
-            return self.before
+        return self.before + "\r\n" if index == 0 else self.before
 
     def __iter__(self):  # File-like object.
 
@@ -966,17 +949,17 @@ class spawn(object):
             raise StopIteration
         return result
 
-    def readlines(self, sizehint=-1):  # File-like object.
+    def readlines(self, sizehint=-1):    # File-like object.
 
         """This reads until EOF using readline() and returns a list containing
         the lines thus read. The optional "sizehint" argument is ignored."""
 
         lines = []
         while True:
-            line = self.readline()
-            if not line:
+            if line := self.readline():
+                lines.append(line)
+            else:
                 break
-            lines.append(line)
         return lines
 
     def write(self, s):  # File-like object.
@@ -1008,8 +991,7 @@ class spawn(object):
         if self.logfile_send is not None:
             self.logfile_send.write(s)
             self.logfile_send.flush()
-        c = os.write(self.child_fd, s)
-        return c
+        return os.write(self.child_fd, s)
 
     def sendline(self, s=""):
 
@@ -1049,9 +1031,7 @@ class spawn(object):
             "_": 31,
             "?": 127,
         }
-        if char not in d:
-            return 0
-        return self.send(chr(d[char]))
+        return 0 if char not in d else self.send(chr(d[char]))
 
     def sendeof(self):
 
@@ -1130,10 +1110,7 @@ class spawn(object):
             if force:
                 self.kill(signal.SIGKILL)
                 time.sleep(self.delayafterterminate)
-                if not self.isalive():
-                    return True
-                else:
-                    return False
+                return not self.isalive()
             return False
         except OSError as e:
             # I think there are kernel timing issues that sometimes cause
@@ -1141,10 +1118,7 @@ class spawn(object):
             # process is dead to the kernel.
             # Make one last attempt to see if the kernel is up to date.
             time.sleep(self.delayafterterminate)
-            if not self.isalive():
-                return True
-            else:
-                return False
+            return not self.isalive()
 
     def wait(self):
 
@@ -1186,14 +1160,7 @@ class spawn(object):
         if self.terminated:
             return False
 
-        if self.flag_eof:
-            # This is for Linux, which requires the blocking form of waitpid to get
-            # status of a defunct process. This is super-lame. The flag_eof would have
-            # been set in read_nonblocking(), so this should be safe.
-            waitpid_options = 0
-        else:
-            waitpid_options = os.WNOHANG
-
+        waitpid_options = 0 if self.flag_eof else os.WNOHANG
         try:
             pid, status = os.waitpid(self.pid, waitpid_options)
         except OSError as e:  # No child processes
@@ -1220,13 +1187,10 @@ class spawn(object):
                 else:
                     raise e
 
-            # If pid is still 0 after two calls to waitpid() then
-            # the process really is alive. This seems to work on all platforms, except
-            # for Irix which seems to require a blocking call on waitpid or select, so I let read_nonblocking
-            # take care of this situation (unfortunately, this requires waiting through the timeout).
-            if pid == 0:
-                return True
-
+        # If pid is still 0 after two calls to waitpid() then
+        # the process really is alive. This seems to work on all platforms, except
+        # for Irix which seems to require a blocking call on waitpid or select, so I let read_nonblocking
+        # take care of this situation (unfortunately, this requires waiting through the timeout).
         if pid == 0:
             return True
 
@@ -1301,8 +1265,7 @@ class spawn(object):
                 compiled_pattern_list.append(p)
             else:
                 raise TypeError(
-                    "Argument must be one of StringTypes, EOF, TIMEOUT, SRE_Pattern, or a list of those type. %s"
-                    % str(type(p))
+                    f"Argument must be one of StringTypes, EOF, TIMEOUT, SRE_Pattern, or a list of those type. {str(type(p))}"
                 )
 
         return compiled_pattern_list
@@ -1501,7 +1464,7 @@ class spawn(object):
         TIOCGWINSZ = getattr(termios, "TIOCGWINSZ", 1074295912)
         s = struct.pack("HHHH", 0, 0, 0, 0)
         x = fcntl.ioctl(self.fileno(), TIOCGWINSZ, s)
-        return struct.unpack("HHHH", x)[0:2]
+        return struct.unpack("HHHH", x)[:2]
 
     def setwinsize(self, r, c):
 
@@ -1628,14 +1591,13 @@ class spawn(object):
             try:
                 return select.select(iwtd, owtd, ewtd, timeout)
             except select.error as e:
-                if e[0] == errno.EINTR:
-                    # if we loop back we have to subtract the amount of time we already waited.
-                    if timeout is not None:
-                        timeout = end_time - time.time()
-                        if timeout < 0:
-                            return ([], [], [])
-                else:  # something else caused the select.error, so this really is an exception
+                if e[0] != errno.EINTR:
                     raise
+                # if we loop back we have to subtract the amount of time we already waited.
+                if timeout is not None:
+                    timeout = end_time - time.time()
+                    if timeout < 0:
+                        return ([], [], [])
 
     ##############################################################################
     # The following methods are no longer supported or allowed.

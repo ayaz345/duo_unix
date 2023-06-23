@@ -18,10 +18,7 @@ class DuoUnixConfig(dict):
         failmode = self.get("failmode", "safe")
         if failmode == "safe" or failmode is None:
             return "Failsafe"
-        if failmode == "secure":
-            return "Failsecure"
-        else:
-            return "Unknown"
+        return "Failsecure" if failmode == "secure" else "Unknown"
 
 
 # Referred to as "duo.conf" in cram testing

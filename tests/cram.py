@@ -107,8 +107,8 @@ def unified_diff(a, b, fromfile='', tofile='', fromfiledate='',
         if not started:
             fromdate = fromfiledate and '\t%s' % fromfiledate or ''
             todate = fromfiledate and '\t%s' % tofiledate or ''
-            yield '--- %s%s%s' % (fromfile, fromdate, lineterm)
-            yield '+++ %s%s%s' % (tofile, todate, lineterm)
+            yield f'--- {fromfile}{fromdate}{lineterm}'
+            yield f'+++ {tofile}{todate}{lineterm}'
             started = True
         i1, i2, j1, j2 = group[0][1], group[-1][2], group[0][3], group[-1][4]
         yield "@@ -%d,%d +%d,%d @@%s" % (i1 + 1, i2 - i1, j1 + 1, j2 - j1,
@@ -116,19 +116,22 @@ def unified_diff(a, b, fromfile='', tofile='', fromfiledate='',
         for tag, i1, i2, j1, j2 in group:
             if tag == 'equal':
                 for line in a[i1:i2]:
-                    yield ' ' + line
+                    yield f' {line}'
                 continue
-            if tag == 'replace' or tag == 'delete':
+            if tag in ['replace', 'delete']:
                 for line in a[i1:i2]:
-                    yield '-' + line
-            if tag == 'replace' or tag == 'insert':
+                    yield f'-{line}'
+            if tag in ['replace', 'insert']:
                 for line in b[j1:j2]:
-                    yield '+' + line
+                    yield f'+{line}'
 
 needescape = re.compile(r'[\x00-\x09\x0b-\x1f\x7f-\xff]').search
 escapesub = re.compile(r'[\x00-\x09\x0b-\x1f\\\x7f-\xff]').sub
-escapemap = dict((chr(i), r'\x%02x' % i) for i in range(256))
-escapemap.update({'\\': '\\\\', '\r': r'\r', '\t': r'\t'})
+escapemap = {chr(i): r'\x%02x' % i for i in range(256)} | {
+    '\\': '\\\\',
+    '\r': r'\r',
+    '\t': r'\t',
+}
 
 def escape(s):
     """Like the string-escape codec, but doesn't escape quotes"""
@@ -147,8 +150,8 @@ def test(path, indent=2):
     None and diff is set to [].
     """
     indent = ' ' * indent
-    cmdline = '%s$ ' % indent
-    conline = '%s> ' % indent
+    cmdline = f'{indent}$ '
+    conline = f'{indent}> '
 
     f = open(path)
     abspath = os.path.abspath(path)
@@ -158,7 +161,7 @@ def test(path, indent=2):
                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                          universal_newlines=True, env=env,
                          close_fds=os.name == 'posix')
-    salt = 'CRAM%s' % time.time()
+    salt = f'CRAM{time.time()}'
 
     after = {}
     refout, postout = [], []
@@ -169,7 +172,7 @@ def test(path, indent=2):
             after.setdefault(pos, []).append(line)
             prepos = pos
             pos = i
-            p.stdin.write('echo "\n%s %s $?"\n' % (salt, i))
+            p.stdin.write('echo "\n%s %s $?"\n' % (salt, pos))
             p.stdin.write(line[len(cmdline):])
         elif line.startswith(conline):
             after.setdefault(prepos, []).append(line)
@@ -191,7 +194,7 @@ def test(path, indent=2):
     # which has more line breaks than \n and \r.
     pos = -1
     ret = 0
-    for i, line in enumerate(output[:-1].split('\n')):
+    for line in output[:-1].split('\n'):
         line += '\n'
         if line.startswith(salt):
             presalt = postout.pop()
@@ -208,7 +211,7 @@ def test(path, indent=2):
             postout.append(indent + line)
     postout += after.pop(pos, [])
 
-    diff = unified_diff(refout, postout, abspath, abspath + '.err')
+    diff = unified_diff(refout, postout, abspath, f'{abspath}.err')
     for firstline in diff:
         return refout, postout, itertools.chain([firstline], diff)
     return refout, postout, []
@@ -227,7 +230,7 @@ def prompt(question, answers, auto=None):
     """
     default = [c for c in answers if c.isupper()]
     while True:
-        sys.stdout.write('%s [%s] ' % (question, answers))
+        sys.stdout.write(f'{question} [{answers}] ')
         sys.stdout.flush()
         if auto is not None:
             sys.stdout.write(auto + '\n')
@@ -282,7 +285,7 @@ def run(paths, tmpdir, quiet=False, verbose=False, patchcmd=None, answer=None,
             continue
         seen.add(abspath)
 
-        log(None, '%s: ' % path, verbose)
+        log(None, f'{path}: ', verbose)
         if not os.stat(abspath).st_size:
             skipped += 1
             log('s', 'empty\n', verbose)
@@ -295,7 +298,7 @@ def run(paths, tmpdir, quiet=False, verbose=False, patchcmd=None, answer=None,
             finally:
                 os.chdir(cwd)
 
-            errpath = abspath + '.err'
+            errpath = f'{abspath}.err'
             if postout is None:
                 skipped += 1
                 log('s', 'skipped\n', verbose)
@@ -309,10 +312,9 @@ def run(paths, tmpdir, quiet=False, verbose=False, patchcmd=None, answer=None,
                 if not quiet:
                     log('\n', None, verbose)
                 try:
-                    errfile = open(errpath, 'w')
-                    for line in postout:
-                        errfile.write(line)
-                    errfile.close()
+                    with open(errpath, 'w') as errfile:
+                        for line in postout:
+                            errfile.write(line)
                 except:
                     # XXX - hack for VPATH builds
                     pass
@@ -348,8 +350,7 @@ def main(args):
     """
     from optparse import OptionParser
 
-    eargs = os.environ.get('CRAM', '').strip()
-    if eargs:
+    if eargs := os.environ.get('CRAM', '').strip():
         import shlex
         args += shlex.split(eargs)
 
@@ -402,8 +403,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
         sys.stdout.write(p.get_usage())
         return 2
 
-    badpaths = [path for path in paths if not os.path.exists(path)]
-    if badpaths:
+    if badpaths := [path for path in paths if not os.path.exists(path)]:
         sys.stderr.write('no such file: %s\n' % badpaths[0])
         return 2
 

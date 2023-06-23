@@ -58,15 +58,14 @@ def pam_duo_interactive(args, env={}, timeout=2):
     env_passthrough = {
         key: os.environ[key] for key in os.environ if key not in excluded_keys
     }
-    env_passthrough.update(env)
+    env_passthrough |= env
 
-    process = pexpect.spawn(
+    return pexpect.spawn(
         pam_duo_path,
         args,
         cwd=TESTDIR,
         env=env_passthrough,
     )
-    return process
 
 
 def pam_duo(args, env={}, timeout=2):
@@ -76,7 +75,7 @@ def pam_duo(args, env={}, timeout=2):
     env_passthrough = {
         key: os.environ[key] for key in os.environ if key not in excluded_keys
     }
-    env_passthrough.update(env)
+    env_passthrough |= env
 
     process = subprocess.Popen(
         pam_duo_path + args,
